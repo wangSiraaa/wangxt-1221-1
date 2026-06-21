@@ -189,3 +189,37 @@ class DisposalRecord(Base):
     handler = relationship("User", foreign_keys=[handler_id])
     instruction = relationship("DisposalInstruction")
     anomaly = relationship("AnomalyRecord")
+
+
+class RetestStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
+
+class RetestPlan(Base):
+    __tablename__ = "retest_plans"
+
+    id = Column(Integer, primary_key=True)
+    plan_no = Column(String(50), unique=True, nullable=False)
+    point_id = Column(Integer, ForeignKey("monitor_points.id"), nullable=False)
+    anomaly_id = Column(Integer, ForeignKey("anomaly_records.id"))
+    responsible_engineer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    retest_reason = Column(Text, nullable=False)
+    trigger_value = Column(Numeric(15, 4))
+    threshold_value = Column(Numeric(15, 4))
+    consecutive_count = Column(Integer, default=2)
+    planned_retest_time = Column(DateTime(timezone=True), nullable=False)
+    actual_retest_time = Column(DateTime(timezone=True))
+    retest_value = Column(Numeric(15, 4))
+    retest_note = Column(Text)
+    status = Column(Enum(RetestStatus), default=RetestStatus.PENDING)
+    completed_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    point = relationship("MonitorPoint", foreign_keys=[point_id])
+    anomaly = relationship("AnomalyRecord", foreign_keys=[anomaly_id])
+    responsible_engineer = relationship("User", foreign_keys=[responsible_engineer_id])
+    completer = relationship("User", foreign_keys=[completed_by])

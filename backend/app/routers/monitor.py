@@ -70,6 +70,8 @@ def _check_and_create_anomaly(
     value: Decimal,
     record_time: datetime
 ):
+    from app.routers.retest import create_auto_retest_plan
+
     warning_threshold = point.warning_threshold
     danger_threshold = point.danger_threshold
 
@@ -106,22 +108,28 @@ def _check_and_create_anomaly(
         else:
             break
 
+    became_critical = False
     if consecutive_count >= 2:
         alert_level = models.AlertLevel.CRITICAL
         trigger_type = "CONSECUTIVE_THRESHOLD"
+        became_critical = True
 
     open_anomaly = db.query(models.AnomalyRecord).filter(
         models.AnomalyRecord.point_id == point.id,
         models.AnomalyRecord.status == "OPEN"
     ).first()
 
+    anomaly = None
     if open_anomaly:
+        old_level = open_anomaly.alert_level
         open_anomaly.consecutive_count = consecutive_count if consecutive_count > open_anomaly.consecutive_count else open_anomaly.consecutive_count
         open_anomaly.trigger_value = value
         if alert_level == models.AlertLevel.CRITICAL and open_anomaly.alert_level != models.AlertLevel.CRITICAL:
             open_anomaly.alert_level = models.AlertLevel.CRITICAL
+            became_critical = True
         db.commit()
-        return open_anomaly
+        db.refresh(open_anomaly)
+        anomaly = open_anomaly
     else:
         anomaly = models.AnomalyRecord(
             point_id=point.id,
@@ -136,7 +144,11 @@ def _check_and_create_anomaly(
         db.add(anomaly)
         db.commit()
         db.refresh(anomaly)
-        return anomaly
+
+    if became_critical and anomaly:
+        create_auto_retest_plan(db, anomaly, point)
+
+    return anomaly
 
 
 @router.post("/data")

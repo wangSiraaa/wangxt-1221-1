@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime, date
 from decimal import Decimal
-from app.models import AlertLevel, InstructionType, InstructionStatus, DischargeStatus
+from app.models import AlertLevel, InstructionType, InstructionStatus, DischargeStatus, RetestStatus
 
 
 class Token(BaseModel):
@@ -263,3 +263,55 @@ class AlertSummary(BaseModel):
 class StopDischargeCheck(BaseModel):
     has_active_stop: bool
     active_instructions: List[DisposalInstructionResponse] = []
+
+
+class RetestPlanBase(BaseModel):
+    point_id: int
+    anomaly_id: Optional[int] = None
+    responsible_engineer_id: int
+    retest_reason: str
+    trigger_value: Optional[Decimal] = None
+    threshold_value: Optional[Decimal] = None
+    consecutive_count: int = 2
+    planned_retest_time: datetime
+
+
+class RetestPlanCreate(RetestPlanBase):
+    pass
+
+
+class RetestPlanUpdate(BaseModel):
+    responsible_engineer_id: Optional[int] = None
+    planned_retest_time: Optional[datetime] = None
+    retest_reason: Optional[str] = None
+
+
+class RetestPlanComplete(BaseModel):
+    retest_value: Decimal
+    retest_note: Optional[str] = None
+
+
+class RetestPlanResponse(RetestPlanBase):
+    id: int
+    plan_no: str
+    actual_retest_time: Optional[datetime] = None
+    retest_value: Optional[Decimal] = None
+    retest_note: Optional[str] = None
+    status: RetestStatus = RetestStatus.PENDING
+    completed_by: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    point: Optional[MonitorPointResponse] = None
+    anomaly: Optional[AnomalyRecordResponse] = None
+    responsible_engineer: Optional[UserResponse] = None
+    completer: Optional[UserResponse] = None
+
+    class Config:
+        from_attributes = True
+
+
+class RetestDashboardSummary(BaseModel):
+    pending_count: int = 0
+    in_progress_count: int = 0
+    overdue_count: int = 0
+    total_count: int = 0

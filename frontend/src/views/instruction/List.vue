@@ -165,6 +165,7 @@ const activeStopInstructions = computed(() => {
     && i.status === 'ISSUED'
     && dayjs(i.effective_from).isBefore(now)
     && (!i.effective_to || dayjs(i.effective_to).isAfter(now))
+  )
 })
 
 function getStatusText(status) {

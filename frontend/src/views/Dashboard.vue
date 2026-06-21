@@ -48,6 +48,53 @@
     </el-row>
 
     <el-row :gutter="20" style="margin-top: 20px;">
+      <el-col :span="6">
+        <el-card class="stat-card retest-pending-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon"><el-icon><Clock /></el-icon></div>
+            <div class="stat-info">
+              <div class="stat-label">待复测点位</div>
+              <div class="stat-value">{{ retestSummary.pending_count }}</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="stat-card retest-progress-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon"><el-icon><Loading /></el-icon></div>
+            <div class="stat-info">
+              <div class="stat-label">复测进行中</div>
+              <div class="stat-value">{{ retestSummary.in_progress_count }}</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="stat-card retest-overdue-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon"><el-icon><Warning /></el-icon></div>
+            <div class="stat-info">
+              <div class="stat-label">复测已逾期</div>
+              <div class="stat-value danger-text">{{ retestSummary.overdue_count }}</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="stat-card retest-total-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon"><el-icon><DataBoard /></el-icon></div>
+            <div class="stat-info">
+              <div class="stat-label">复测任务总计</div>
+              <div class="stat-value">{{ retestSummary.total_count }}</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" style="margin-top: 20px;">
       <el-col :span="24">
         <el-card>
           <template #header>
@@ -78,6 +125,78 @@
             <el-table-column prop="time" label="采集时间" width="180">
               <template #default="{ row }">
                 {{ formatTime(row.time) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" style="margin-top: 20px;">
+      <el-col :span="24">
+        <el-card>
+          <template #header>
+            <div class="card-header">
+              <span class="card-title retest-board-title">
+                <el-icon style="vertical-align: -3px; margin-right: 6px; color: #e6a23c;"><Warning /></el-icon>
+                复测提醒看板（待复测点位与责任工程师）
+              </span>
+              <el-button type="primary" link @click="viewAllRetestPlans">查看全部复测计划</el-button>
+            </div>
+          </template>
+          <el-table :data="pendingRetestPlans" size="small" style="width: 100%" empty-text="暂无待复测任务">
+            <el-table-column prop="plan_no" label="复测单号" width="150" />
+            <el-table-column prop="point_code" label="监测点编号" width="130">
+              <template #default="{ row }">{{ row.point?.point_code || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="监测点名称">
+              <template #default="{ row }">{{ row.point?.point_name || row.point_id }}</template>
+            </el-table-column>
+            <el-table-column prop="type_name" label="监测类型" width="100">
+              <template #default="{ row }">{{ row.point?.monitor_type?.type_name || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="trigger_value" label="触发值" width="100" />
+            <el-table-column prop="threshold_value" label="阈值" width="100" />
+            <el-table-column prop="consecutive_count" label="连续超阈值次数" width="130" align="center">
+              <template #default="{ row }">
+                <el-tag v-if="row.consecutive_count >= 2" type="danger" effect="dark" size="small">{{ row.consecutive_count }} 次</el-tag>
+                <el-tag v-else type="warning" size="small">{{ row.consecutive_count }} 次</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="责任工程师" width="130">
+              <template #default="{ row }">
+                <div class="engineer-info">
+                  <el-icon><UserFilled /></el-icon>
+                  <span>{{ row.responsible_engineer?.real_name || '未指派' }}</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="phone" label="联系电话" width="130">
+              <template #default="{ row }">{{ row.responsible_engineer?.phone || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="计划复测时间" width="180">
+              <template #default="{ row }">
+                <span :class="{ 'text-overdue': isOverdue(row) }">
+                  {{ formatTime(row.planned_retest_time) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="110" align="center">
+              <template #default="{ row }">
+                <el-tag v-if="isOverdue(row)" type="danger" size="small" effect="dark">逾期</el-tag>
+                <el-tag v-else :type="getRetestStatusType(row.status)" size="small" effect="dark">
+                  {{ getRetestStatusText(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180" fixed="right" align="center">
+              <template #default="{ row }">
+                <el-button type="primary" link size="small" @click="handleStartRetest(row)" :disabled="row.status !== 'PENDING'">
+                  开始复测
+                </el-button>
+                <el-button type="success" link size="small" @click="handleCompleteRetest(row)">
+                  完成复测
+                </el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -124,11 +243,27 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <el-dialog v-model="completeDialogVisible" title="完成复测" width="500px">
+      <el-form :model="completeForm" label-width="100px">
+        <el-form-item label="复测值">
+          <el-input-number v-model="completeForm.retest_value" :precision="4" :step="1" style="width: 100%;" />
+        </el-form-item>
+        <el-form-item label="复测说明">
+          <el-input v-model="completeForm.retest_note" type="textarea" :rows="3" placeholder="请输入复测情况说明..." />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="completeDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitCompleteRetest">确认提交</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
@@ -140,19 +275,31 @@ import {
 } from 'echarts/components'
 import dayjs from 'dayjs'
 import {
-  WarningFilled, CircleCloseFilled, CircleCheckFilled, BellFilled
+  WarningFilled, CircleCloseFilled, CircleCheckFilled, BellFilled,
+  Clock, Loading, Warning, DataBoard, UserFilled
 } from '@element-plus/icons-vue'
 import { getAlertSummary, getLatestMonitorData, getMonitorPoints, queryMonitorData } from '@/api/monitor'
 import { getAnomalyRecords } from '@/api/anomaly'
+import {
+  getRetestDashboardSummary, getRetestPlans, startRetest, completeRetest
+} from '@/api/retest'
 
 use([
   CanvasRenderer, LineChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent, DatasetComponent, TransformComponent
 ])
 
 const alertSummary = ref({ warning_count: 0, danger_count: 0, critical_count: 0, unconfirmed_count: 0 })
+const retestSummary = ref({ pending_count: 0, in_progress_count: 0, overdue_count: 0, total_count: 0 })
 const monitorPoints = ref([])
 const latestDataMap = ref({})
 const recentAnomalies = ref([])
+const pendingRetestPlans = ref([])
+const completeDialogVisible = ref(false)
+const currentRetestPlan = ref(null)
+const completeForm = reactive({
+  retest_value: 0,
+  retest_note: ''
+})
 
 const latestDataList = computed(() => {
   return monitorPoints.value.map(p => {
@@ -196,6 +343,79 @@ function getAlertType(level) {
 function getAlertText(level) {
   const map = { WARNING: '预警', DANGER: '危险', CRITICAL: '严重', NORMAL: '正常' }
   return map[level] || '未知'
+}
+
+function getRetestStatusType(status) {
+  const map = { PENDING: 'warning', IN_PROGRESS: 'primary', COMPLETED: 'success', CANCELLED: 'info' }
+  return map[status] || 'info'
+}
+
+function getRetestStatusText(status) {
+  const map = { PENDING: '待复测', IN_PROGRESS: '进行中', COMPLETED: '已完成', CANCELLED: '已取消' }
+  return map[status] || status
+}
+
+function isOverdue(row) {
+  if (!row?.planned_retest_time || row.status === 'COMPLETED' || row.status === 'CANCELLED') return false
+  return dayjs(row.planned_retest_time).isBefore(dayjs())
+}
+
+async function handleStartRetest(row) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要开始对监测点 [${row.point?.point_name || row.point_id}] 的复测吗？`,
+      '开始复测确认',
+      { type: 'warning', confirmButtonText: '确定开始', cancelButtonText: '取消' }
+    )
+    await startRetest(row.id)
+    ElMessage.success('复测任务已开始')
+    await loadRetestData()
+  } catch (e) {
+    if (e !== 'cancel') console.error(e)
+  }
+}
+
+function handleCompleteRetest(row) {
+  currentRetestPlan.value = row
+  completeForm.retest_value = 0
+  completeForm.retest_note = ''
+  completeDialogVisible.value = true
+}
+
+async function submitCompleteRetest() {
+  if (!currentRetestPlan.value) return
+  if (completeForm.retest_value == null) {
+    ElMessage.warning('请填写复测值')
+    return
+  }
+  try {
+    await completeRetest(currentRetestPlan.value.id, {
+      retest_value: completeForm.retest_value,
+      retest_note: completeForm.retest_note
+    })
+    ElMessage.success('复测完成，已提交结果')
+    completeDialogVisible.value = false
+    await loadRetestData()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+function viewAllRetestPlans() {
+  ElMessage.info('复测计划列表功能即将上线，当前可在看板中直接处理待复测任务')
+}
+
+async function loadRetestData() {
+  try {
+    const [summaryRes, plansRes] = await Promise.all([
+      getRetestDashboardSummary(),
+      getRetestPlans({ only_active: true, limit: 50 })
+    ])
+    retestSummary.value = summaryRes
+    pendingRetestPlans.value = plansRes
+  } catch (e) {
+    console.error('加载复测数据失败:', e)
+  }
 }
 
 function formatTime(t) {
@@ -279,7 +499,10 @@ async function loadData() {
     monitorPoints.value = points
     latestDataMap.value = latest.data || {}
     recentAnomalies.value = anomalies.map(a => ({ ...a, point_name: a.point?.point_name || a.point_id }))
-    await loadTrendData()
+    await Promise.all([
+      loadTrendData(),
+      loadRetestData()
+    ])
   } catch (e) {
     console.error(e)
   }
@@ -329,4 +552,23 @@ onMounted(() => {
 .text-danger { color: #f56c6c; font-weight: 600; }
 .text-warning { color: #e6a23c; font-weight: 600; }
 .text-normal { color: #67c23a; }
+
+.retest-pending-card .stat-icon { background: #e6a23c; }
+.retest-progress-card .stat-icon { background: #409EFF; }
+.retest-overdue-card .stat-icon { background: #f56c6c; }
+.retest-total-card .stat-icon { background: #36b368; }
+
+.danger-text { color: #f56c6c !important; }
+.text-overdue { color: #f56c6c; font-weight: 600; }
+
+.engineer-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.retest-board-title {
+  font-size: 16px;
+  font-weight: 600;
+}
 </style>

@@ -219,3 +219,35 @@ CREATE INDEX IF NOT EXISTS idx_anomaly_records_point_time ON anomaly_records(poi
 CREATE INDEX IF NOT EXISTS idx_instructions_status ON disposal_instructions(status);
 CREATE INDEX IF NOT EXISTS idx_discharge_plans_date ON discharge_plans(plan_date DESC);
 CREATE INDEX IF NOT EXISTS idx_disposal_records_instruction ON disposal_records(instruction_id);
+
+-- ========================================
+-- 八、复测计划（普通关系表）
+-- ========================================
+
+-- 复测计划状态
+CREATE TYPE retest_status AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
+
+-- 复测计划表
+CREATE TABLE IF NOT EXISTS retest_plans (
+    id SERIAL PRIMARY KEY,
+    plan_no VARCHAR(50) UNIQUE NOT NULL,
+    point_id INTEGER NOT NULL REFERENCES monitor_points(id),
+    anomaly_id INTEGER REFERENCES anomaly_records(id),
+    responsible_engineer_id INTEGER NOT NULL REFERENCES users(id),
+    retest_reason TEXT NOT NULL,
+    trigger_value NUMERIC(15, 4),
+    threshold_value NUMERIC(15, 4),
+    consecutive_count INTEGER DEFAULT 2,
+    planned_retest_time TIMESTAMPTZ NOT NULL,
+    actual_retest_time TIMESTAMPTZ,
+    retest_value NUMERIC(15, 4),
+    retest_note TEXT,
+    status retest_status DEFAULT 'PENDING',
+    completed_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_retest_plans_status ON retest_plans(status);
+CREATE INDEX IF NOT EXISTS idx_retest_plans_engineer ON retest_plans(responsible_engineer_id);
+CREATE INDEX IF NOT EXISTS idx_retest_plans_planned_time ON retest_plans(planned_retest_time DESC);
